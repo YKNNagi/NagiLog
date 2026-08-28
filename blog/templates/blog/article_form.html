@@ -1,0 +1,10 @@
+<form method="post">
+    {% csrf_token %}
+    
+    {{ form.title }}
+    {{ form.body }}
+    {{ form.tags }}
+    {{ form.is_pinned }}
+
+    <button type="submit">投稿する</button>
+</form>
