@@ -157,3 +157,86 @@ class ArticleModelTest(TestCase):
     def test_tag_str_returns_name(self):
 
         self.assertEqual(str(self.tag), "Python")
+
+#ビューテスト
+class ArticleViewTest(TestCase):
+
+    # 記事作成画面を正常に表示できることを確認
+    def test_create_view_get(self):
+
+        response = self.client.get("/create/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "blog/article_form.html")
+
+    # ダッシュボードを正常に表示できることを確認
+    def test_dashboard_view_get(self):
+
+        response = self.client.get("/dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "blog/dashboard.html")
+
+    # 正しい入力で記事を作成するとDBに保存されることを確認
+    def test_create_view_post_valid_data(self):
+
+        data = {
+            "title": "テスト記事",
+            "body": "テスト記事中身",
+            "tags": [],
+            "is_pinned": False,
+        }
+
+        response = self.client.post("/create/", data)
+
+        self.assertEqual(Article.objects.count(), 1)
+
+    # POSTした記事の内容が正しくDBに保存されることを確認
+    def test_create_view_saves_posted_article_data(self):
+
+        data = {
+            "title": "テスト記事",
+            "body": "テスト記事中身",
+            "tags": [],
+            "is_pinned": False,
+        }
+
+        response = self.client.post("/create/", data)
+
+        article = Article.objects.get(title="テスト記事")
+
+        self.assertEqual(article.title, "テスト記事")
+        self.assertEqual(article.body, "テスト記事中身")
+
+    # 不正な入力では記事が保存されないことを確認
+    def test_create_view_post_invalid_data(self):
+
+        data = {
+                    "title": "テスト記事",
+                    "body": "",
+                    "tags": [],
+                    "is_pinned": False,
+                }
+
+        response = self.client.post("/create/", data)
+
+        self.assertEqual(Article.objects.count(), 0)
+
+    # 不正な入力の場合、入力済みフォームとエラーが再表示されることを確認
+    def test_create_view_invalid_form_keeps_errors(self):
+        data = {
+            "title": "",
+            "body": "めちゃくちゃ頑張って書いた記事本文",
+            "tags": [],
+            "is_pinned": False,
+        }
+
+        response = self.client.post("/create/", data)
+
+        form = response.context["form"]
+
+        self.assertIn("title", form.errors)
+        self.assertEqual(
+            form["body"].value(),
+            "めちゃくちゃ頑張って書いた記事本文"
+        )
