@@ -240,3 +240,27 @@ class ArticleViewTest(TestCase):
             form["body"].value(),
             "めちゃくちゃ頑張って書いた記事本文"
         )
+
+    # 正しい入力で記事を作成した場合、ダッシュボードへリダイレクトされることを確認
+    def test_create_view_redirects_to_dashboard(self):
+        data = {
+            "title": "テスト記事",
+            "body": "テスト記事中身",
+            "tags": [],
+            "is_pinned": False,
+        }
+
+        response = self.client.post("/create/", data)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, "/dashboard/")
+
+    # ダッシュボードに保存済み記事のタイトルが表示されることを確認
+    def test_dashboard_displays_article_title(self):
+        article = Article.objects.create(
+                    title="テスト記事",
+                    body="テスト記事中身",
+                    is_pinned=False,
+                )
+        response = self.client.get("/dashboard/")
+        self.assertContains(response, "テスト記事")
