@@ -257,10 +257,48 @@ class ArticleViewTest(TestCase):
 
     # ダッシュボードに保存済み記事のタイトルが表示されることを確認
     def test_dashboard_displays_article_title(self):
-        article = Article.objects.create(
-                    title="テスト記事",
-                    body="テスト記事中身",
-                    is_pinned=False,
-                )
+        Article.objects.create(
+            title="テスト記事",
+            body="テスト記事中身",
+            is_pinned=False,
+        )
+
         response = self.client.get("/dashboard/")
+
         self.assertContains(response, "テスト記事")
+
+    # ダッシュボードに複数の保存済み記事がすべて表示されることを確認
+    def test_dashboard_displays_multiple_articles(self):
+        Article.objects.create(
+            title="テスト記事1",
+            body="テスト記事中身1",
+            is_pinned=False,
+        )
+
+        Article.objects.create(
+            title="テスト記事2",
+            body="テスト記事中身2",
+            is_pinned=False,
+        )
+
+        response = self.client.get("/dashboard/")
+
+        self.assertContains(response, "テスト記事1")
+        self.assertContains(response, "テスト記事2")
+
+    # タグ付きの記事をPOSTした場合、記事とタグが正しく関連付けて保存されることを確認
+    def test_create_view_saves_article_with_tags(self):
+        tag = Tag.objects.create(name="python")
+
+        data = {
+            "title": "テスト記事",
+            "body": "テスト記事中身",
+            "tags": [tag.id],
+            "is_pinned": False,
+            }
+
+        response = self.client.post("/create/", data)
+
+        article = Article.objects.get(title="テスト記事")
+
+        self.assertIn(tag, article.tags.all())
