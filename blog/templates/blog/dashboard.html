@@ -2,4 +2,6 @@
 
     {{ article.title }}
 
+    <a href="{% url 'update' article.pk %}">編集</a>
+
 {% endfor %}
