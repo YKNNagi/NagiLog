@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.urls import reverse
 
 from .forms import ArticleForm
 from .models import Article, Tag
@@ -263,3 +264,115 @@ class DashboardViewTest(TestCase):
 
         self.assertContains(response, "Python学習記録")
         self.assertContains(response, "Django学習記録")
+
+class ArticleUpdateViewTest(TestCase):
+    def setUp(self):
+        self.article = Article.objects.create(
+            title="更新前の記事タイトル",
+            body="更新前の記事本文",
+            is_pinned=False,
+        )
+
+    # 既存記事の編集画面をGETした場合、正常に表示されることを確認する。Update画面へアクセスできることを保証するため。
+    def test_update_page_on_get_returns_success(self):
+        response = self.client.get(
+            reverse("update", args=[self.article.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "blog/article_form.html")
+
+    # 編集画面に既存記事の内容が表示されることを確認する。編集前の内容を保持した状態から変更できることを保証するため。
+    def test_update_page_displays_existing_article_data(self):
+        response = self.client.get(
+            reverse("update", args=[self.article.id])
+        )
+
+        form = response.context["form"]
+
+        self.assertEqual(
+            form["title"].value(),
+            "更新前の記事タイトル",
+        )
+
+        self.assertEqual(
+            form["body"].value(),
+            "更新前の記事本文",
+        )
+
+    # 正しい内容をPOSTした場合、既存記事が更新されることを確認する。新規記事を作らず対象記事を書き換えられることを保証するため。
+    def test_update_with_valid_data_updates_article(self):
+        data = {
+            "title": "更新後の記事タイトル",
+            "body": "更新後の記事本文",
+            "tags": [],
+            "is_pinned": False,
+        }
+
+        self.client.post(
+            reverse("update", args=[self.article.id]),
+            data,
+        )
+
+        self.article.refresh_from_db()
+
+        self.assertEqual(
+            self.article.title,
+            "更新後の記事タイトル",
+        )
+        self.assertEqual(
+            self.article.body,
+            "更新後の記事本文",
+        )
+        self.assertEqual(Article.objects.count(), 1)
+
+    # 正しい内容をPOSTした場合、Dashboardへリダイレクトされることを確認する。更新後の再送信を避けて一覧へ戻れることを保証するため。
+    def test_update_with_valid_data_redirects_to_dashboard(self):
+        data = {
+            "title": "更新後の記事タイトル",
+            "body": "更新後の記事本文",
+            "tags": [],
+            "is_pinned": False,
+        }
+
+        response = self.client.post(
+            reverse("update", args=[self.article.id]),
+            data,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, "/dashboard/")
+
+    # 不正な内容をPOSTした場合、既存記事が更新されないことを確認する。入力エラーによって保存済みの記事が壊れることを防ぐため。
+    def test_update_with_invalid_data_does_not_change_article(self):
+        data = {
+                    "title": "",
+                    "body": "更新しようとした記事本文",
+                    "tags": [],
+                    "is_pinned": False,
+                }
+
+        self.client.post(
+            reverse("update", args=[self.article.id]),
+            data,
+        )
+
+        self.article.refresh_from_db()
+
+        self.assertEqual(
+            self.article.title,
+            "更新前の記事タイトル",
+        )
+
+        self.assertEqual(
+            self.article.body,
+            "更新前の記事本文",
+        )
+
+    # 存在しない記事IDへアクセスした場合、404になることを確認する。存在しない記事を編集できないことを保証するため。
+    def test_update_with_missing_article_returns_404(self):
+        response = self.client.get(
+            reverse("update", args=[9999])
+        )
+
+        self.assertEqual(response.status_code, 404)
