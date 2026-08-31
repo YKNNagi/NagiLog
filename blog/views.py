@@ -37,8 +37,7 @@ def update(request, pk):
 
         if form.is_valid():
             form.save()
-        return redirect("dashboard")
-
+            return redirect("dashboard")
 
     else:
         form = ArticleForm(instance=article)

@@ -302,10 +302,17 @@ class ArticleUpdateViewTest(TestCase):
 
     # 正しい内容をPOSTした場合、既存記事が更新されることを確認する。新規記事を作らず対象記事を書き換えられることを保証するため。
     def test_update_with_valid_data_updates_article(self):
+        other_article = Article.objects.create(
+            title="更新しない記事タイトル",
+            body="更新しない記事本文",
+            is_pinned=False,
+        )
+        tag = Tag.objects.create(name="python")
+
         data = {
             "title": "更新後の記事タイトル",
             "body": "更新後の記事本文",
-            "tags": [],
+            "tags": [tag.id],
             "is_pinned": False,
         }
 
@@ -315,16 +322,32 @@ class ArticleUpdateViewTest(TestCase):
         )
 
         self.article.refresh_from_db()
+        other_article.refresh_from_db()
 
         self.assertEqual(
             self.article.title,
             "更新後の記事タイトル",
         )
+
         self.assertEqual(
             self.article.body,
             "更新後の記事本文",
         )
-        self.assertEqual(Article.objects.count(), 1)
+        self.assertEqual(
+            other_article.title,
+            "更新しない記事タイトル",
+        )
+
+        self.assertEqual(
+            other_article.body,
+            "更新しない記事本文",
+        )
+        self.assertIn(
+            tag,
+            self.article.tags.all(),
+        )
+
+        self.assertEqual(Article.objects.count(), 2)
 
     # 正しい内容をPOSTした場合、Dashboardへリダイレクトされることを確認する。更新後の再送信を避けて一覧へ戻れることを保証するため。
     def test_update_with_valid_data_redirects_to_dashboard(self):
@@ -376,3 +399,41 @@ class ArticleUpdateViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    # 不正な内容をPOSTした場合、エラー付き編集フォームが再表示されることを確認する。入力ミスの理由を確認して修正できることを保証するため。
+    def test_update_with_invalid_data_redisplays_form_with_errors(self):
+        data = {
+            "title": "",
+            "body": "更新しようとした記事本文",
+            "tags": [],
+            "is_pinned": False,
+        }
+
+        response = self.client.post(
+            reverse("update", args=[self.article.id]),
+            data,
+        )
+
+        form = response.context["form"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "blog/article_form.html")
+        self.assertIn("title", form.errors)
+        self.assertEqual(
+            form["body"].value(),
+            "更新しようとした記事本文",
+        )
+
+    # Dashboardの編集リンクが対象記事のUpdate画面を指すことを確認する。別の記事を誤って編集する導線を防ぐため。
+    def test_dashboard_edit_link_points_to_article_update(self):
+        article = Article.objects.create(
+            title="Python学習記録",
+            body="Pythonの基本を学習した記録",
+            is_pinned=False,
+        )
+
+        response = self.client.get("/dashboard/")
+
+        update_url = reverse("update", args=[article.id])
+
+        self.assertContains(response, update_url)
