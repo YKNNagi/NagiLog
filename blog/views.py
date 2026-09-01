@@ -22,9 +22,18 @@ def create(request):
 
 def dashboard(request):
     articles = Article.objects.all()
+    tags = Tag.objects.all()
+
+    selected_tag = request.GET.get("tag")
+
+    if selected_tag:
+        articles = articles.filter(
+            tags__name=selected_tag
+        )
 
     context = {
-        "articles": articles
+        "articles": articles,
+        "tags": tags,
     }
 
     return render(request, "blog/dashboard.html", context)

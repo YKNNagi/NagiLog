@@ -1,6 +1,15 @@
+<a href="/dashboard/">すべて</a>
+
+{% for tag in tags %}
+    <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
+{% endfor %}
+
 {% for article in articles %}
 
     {{ article.title }}
+    {% for tag in article.tags.all %}
+        <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
+    {% endfor %}
 
     <a href="{% url 'update' article.pk %}">編集</a>
     <a href="{% url 'delete' article.pk %}">削除</a>
