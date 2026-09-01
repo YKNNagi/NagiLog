@@ -265,6 +265,40 @@ class DashboardViewTest(TestCase):
         self.assertContains(response, "Python学習記録")
         self.assertContains(response, "Django学習記録")
 
+    # Dashboardの編集リンクが対象記事のUpdate画面を指すことを確認する。別の記事を誤って編集する導線を防ぐため。
+    def test_dashboard_edit_link_points_to_article_update(self):
+        article = Article.objects.create(
+            title="編集対象の学習記録",
+            body="編集対象の記事本文",
+            is_pinned=False,
+        )
+
+        response = self.client.get("/dashboard/")
+        update_url = reverse("update", args=[article.id])
+
+        self.assertContains(response, update_url)
+
+    # Dashboardの各削除リンクがそれぞれのDelete画面を指すことを確認する。別の記事を誤って削除する導線を防ぐため。
+    def test_dashboard_delete_links_point_to_each_article(self):
+        python_article = Article.objects.create(
+            title="Python学習記録",
+            body="Pythonの記事本文",
+            is_pinned=False,
+        )
+        django_article = Article.objects.create(
+            title="Django学習記録",
+            body="Djangoの記事本文",
+            is_pinned=False,
+        )
+
+        response = self.client.get("/dashboard/")
+        python_delete_url = reverse("delete", args=[python_article.id])
+        django_delete_url = reverse("delete", args=[django_article.id])
+
+        self.assertContains(response, python_delete_url)
+        self.assertContains(response, django_delete_url)
+
+
 class ArticleUpdateViewTest(TestCase):
     def setUp(self):
         self.article = Article.objects.create(
@@ -272,21 +306,24 @@ class ArticleUpdateViewTest(TestCase):
             body="更新前の記事本文",
             is_pinned=False,
         )
+        self.update_url = reverse("update", args=[self.article.id])
+        self.invalid_post_data = {
+            "title": "",
+            "body": "更新しようとした記事本文",
+            "tags": [],
+            "is_pinned": False,
+        }
 
     # 既存記事の編集画面をGETした場合、正常に表示されることを確認する。Update画面へアクセスできることを保証するため。
     def test_update_page_on_get_returns_success(self):
-        response = self.client.get(
-            reverse("update", args=[self.article.id])
-        )
+        response = self.client.get(self.update_url)
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "blog/article_form.html")
 
     # 編集画面に既存記事の内容が表示されることを確認する。編集前の内容を保持した状態から変更できることを保証するため。
     def test_update_page_displays_existing_article_data(self):
-        response = self.client.get(
-            reverse("update", args=[self.article.id])
-        )
+        response = self.client.get(self.update_url)
 
         form = response.context["form"]
 
@@ -317,7 +354,7 @@ class ArticleUpdateViewTest(TestCase):
         }
 
         self.client.post(
-            reverse("update", args=[self.article.id]),
+            self.update_url,
             data,
         )
 
@@ -359,7 +396,7 @@ class ArticleUpdateViewTest(TestCase):
         }
 
         response = self.client.post(
-            reverse("update", args=[self.article.id]),
+            self.update_url,
             data,
         )
 
@@ -368,16 +405,9 @@ class ArticleUpdateViewTest(TestCase):
 
     # 不正な内容をPOSTした場合、既存記事が更新されないことを確認する。入力エラーによって保存済みの記事が壊れることを防ぐため。
     def test_update_with_invalid_data_does_not_change_article(self):
-        data = {
-                    "title": "",
-                    "body": "更新しようとした記事本文",
-                    "tags": [],
-                    "is_pinned": False,
-                }
-
         self.client.post(
-            reverse("update", args=[self.article.id]),
-            data,
+            self.update_url,
+            self.invalid_post_data,
         )
 
         self.article.refresh_from_db()
@@ -402,16 +432,9 @@ class ArticleUpdateViewTest(TestCase):
 
     # 不正な内容をPOSTした場合、エラー付き編集フォームが再表示されることを確認する。入力ミスの理由を確認して修正できることを保証するため。
     def test_update_with_invalid_data_redisplays_form_with_errors(self):
-        data = {
-            "title": "",
-            "body": "更新しようとした記事本文",
-            "tags": [],
-            "is_pinned": False,
-        }
-
         response = self.client.post(
-            reverse("update", args=[self.article.id]),
-            data,
+            self.update_url,
+            self.invalid_post_data,
         )
 
         form = response.context["form"]
@@ -424,19 +447,6 @@ class ArticleUpdateViewTest(TestCase):
             "更新しようとした記事本文",
         )
 
-    # Dashboardの編集リンクが対象記事のUpdate画面を指すことを確認する。別の記事を誤って編集する導線を防ぐため。
-    def test_dashboard_edit_link_points_to_article_update(self):
-        article = Article.objects.create(
-            title="Python学習記録",
-            body="Pythonの基本を学習した記録",
-            is_pinned=False,
-        )
-
-        response = self.client.get("/dashboard/")
-
-        update_url = reverse("update", args=[article.id])
-
-        self.assertContains(response, update_url)
 
 class ArticleDeleteViewTest(TestCase):
     def setUp(self):
@@ -445,12 +455,11 @@ class ArticleDeleteViewTest(TestCase):
             body="削除対象の記事本文",
             is_pinned=False,
         )
+        self.delete_url = reverse("delete", args=[self.article.id])
 
-    # 削除確認画面をGETした場合、正常に表示されることを確認する。誤操作を防ぐために削除前の確認画面へアクセスできることを保証するため。
+    # GETで削除確認画面が表示され、記事が残ることを確認する。確認画面の表示だけで削除される事故を防ぐため。
     def test_delete_page_on_get_returns_success(self):
-        response = self.client.get(
-            reverse("delete", args=[self.article.id])
-        )
+        response = self.client.get(self.delete_url)
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "blog/article_confirm_delete.html")
@@ -460,9 +469,7 @@ class ArticleDeleteViewTest(TestCase):
 
     # 削除確認画面に対象記事のタイトルが表示されることを確認する。別の記事を誤って削除することを防ぐため。
     def test_delete_page_displays_target_article_title(self):
-        response = self.client.get(
-            reverse("delete", args=[self.article.id])
-        )
+        response = self.client.get(self.delete_url)
 
         self.assertContains(response, self.article.title)
 
@@ -475,7 +482,7 @@ class ArticleDeleteViewTest(TestCase):
         )
 
         self.client.post(
-            reverse("delete", args=[self.article.id])
+            self.delete_url
         )
         self.assertFalse(
             Article.objects.filter(pk=self.article.pk).exists()
@@ -484,14 +491,10 @@ class ArticleDeleteViewTest(TestCase):
             Article.objects.filter(pk=other_article.pk).exists()
         )
 
-        self.assertEqual(Article.objects.count(), 1)
-
     # 記事を削除した場合、Dashboardへリダイレクトされることを確認する。削除後に存在しない記事の確認画面へ残らず一覧へ戻れることを保証するため。
     def test_delete_with_post_redirects_to_dashboard(self):
-        response = self.client.post(
-            reverse("delete", args=[self.article.id]),
-        )
-        
+        response = self.client.post(self.delete_url)
+
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, "/dashboard/")
 
@@ -500,27 +503,5 @@ class ArticleDeleteViewTest(TestCase):
         response = self.client.get(
             reverse("delete", args=[9999])
         )
-    
+
         self.assertEqual(response.status_code, 404)
-
-    # Dashboardの各削除リンクが、それぞれ対象記事のDelete画面を指すことを確認する。別の記事を誤って削除する導線を防ぐため。
-    def test_dashboard_delete_links_point_to_each_article(self):
-        article1 = Article.objects.create(
-            title="Python学習記録",
-            body="Pythonの記事本文",
-            is_pinned=False,
-        )
-
-        article2 = Article.objects.create(
-            title="Django学習記録",
-            body="Djangoの記事本文",
-            is_pinned=False,
-        )
-
-        response = self.client.get("/dashboard/")
-
-        delete_url1 = reverse("delete", args=[article1.id])
-        delete_url2 = reverse("delete", args=[article2.id])
-
-        self.assertContains(response, delete_url1)
-        self.assertContains(response, delete_url2)
