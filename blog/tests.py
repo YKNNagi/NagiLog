@@ -437,3 +437,65 @@ class ArticleUpdateViewTest(TestCase):
         update_url = reverse("update", args=[article.id])
 
         self.assertContains(response, update_url)
+
+class ArticleDeleteViewTest(TestCase):
+    def setUp(self):
+        self.article = Article.objects.create(
+            title="削除対象の記事タイトル",
+            body="削除対象の記事本文",
+            is_pinned=False,
+        )
+
+    # 削除確認画面をGETした場合、正常に表示されることを確認する。誤操作を防ぐために削除前の確認画面へアクセスできることを保証するため。
+    def test_delete_page_on_get_returns_success(self):
+        response = self.client.get(
+            reverse("delete", args=[self.article.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "blog/article_confirm_delete.html")
+
+    # 削除確認画面に対象記事のタイトルが表示されることを確認する。別の記事を誤って削除することを防ぐため。
+    def test_delete_page_displays_target_article_title(self):
+        response = self.client.get(
+            reverse("delete", args=[self.article.id])
+        )
+
+        self.assertContains(response, self.article.title)
+
+    # 削除確認画面からPOSTした場合、対象記事が削除されることを確認する。削除操作によって記事をDBから正しく削除できることを保証するため。
+    def test_delete_with_post_deletes_article(self):
+        other_article = Article.objects.create(
+            title="削除しない記事タイトル",
+            body="削除しない記事本文",
+            is_pinned=False,
+        )
+
+        self.client.post(
+            reverse("delete", args=[self.article.id])
+        )
+        self.assertFalse(
+            Article.objects.filter(pk=self.article.pk).exists()
+        )
+        self.assertTrue(
+            Article.objects.filter(pk=other_article.pk).exists()
+        )
+
+        self.assertEqual(Article.objects.count(), 1)
+
+    # 記事を削除した場合、Dashboardへリダイレクトされることを確認する。削除後に存在しない記事の確認画面へ残らず一覧へ戻れることを保証するため。
+    def test_delete_with_post_redirects_to_dashboard(self):
+        response = self.client.post(
+            reverse("delete", args=[self.article.id]),
+        )
+        
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, "/dashboard/")
+
+    # 存在しない記事IDへアクセスした場合、404になることを確認する。存在しない記事を削除できないことを保証するため。
+    def test_delete_with_missing_article_returns_404(self):
+        response = self.client.get(
+            reverse("delete", args=[9999])
+        )
+    
+        self.assertEqual(response.status_code, 404)
