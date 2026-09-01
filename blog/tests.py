@@ -454,6 +454,9 @@ class ArticleDeleteViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "blog/article_confirm_delete.html")
+        self.assertTrue(
+            Article.objects.filter(pk=self.article.pk).exists()
+        )
 
     # 削除確認画面に対象記事のタイトルが表示されることを確認する。別の記事を誤って削除することを防ぐため。
     def test_delete_page_displays_target_article_title(self):
@@ -499,3 +502,25 @@ class ArticleDeleteViewTest(TestCase):
         )
     
         self.assertEqual(response.status_code, 404)
+
+    # Dashboardの各削除リンクが、それぞれ対象記事のDelete画面を指すことを確認する。別の記事を誤って削除する導線を防ぐため。
+    def test_dashboard_delete_links_point_to_each_article(self):
+        article1 = Article.objects.create(
+            title="Python学習記録",
+            body="Pythonの記事本文",
+            is_pinned=False,
+        )
+
+        article2 = Article.objects.create(
+            title="Django学習記録",
+            body="Djangoの記事本文",
+            is_pinned=False,
+        )
+
+        response = self.client.get("/dashboard/")
+
+        delete_url1 = reverse("delete", args=[article1.id])
+        delete_url2 = reverse("delete", args=[article2.id])
+
+        self.assertContains(response, delete_url1)
+        self.assertContains(response, delete_url2)
