@@ -1,0 +1,8 @@
+<h1>記事を削除</h1>
+
+<p>「{{ article.title }}」を削除しますか？</p>
+
+<form method="POST">
+    {% csrf_token %}
+    <button type="submit">削除する</button>
+</form>

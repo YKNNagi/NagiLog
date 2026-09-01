@@ -47,3 +47,20 @@ def update(request, pk):
     }
 
     return render(request, "blog/article_form.html", context)
+
+def delete(request, pk):
+    article = get_object_or_404(Article, pk=pk)
+
+    if request.method == "POST":
+        article.delete()
+        return redirect("dashboard")
+
+    context = {
+        "article": article,
+    }
+
+    return render(
+        request,
+        "blog/article_confirm_delete.html",
+        context,
+    )

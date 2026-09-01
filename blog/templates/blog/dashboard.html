@@ -3,5 +3,6 @@
     {{ article.title }}
 
     <a href="{% url 'update' article.pk %}">編集</a>
+    <a href="{% url 'delete' article.pk %}">削除</a>
 
 {% endfor %}
