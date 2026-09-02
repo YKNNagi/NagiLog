@@ -505,3 +505,92 @@ class ArticleDeleteViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    # Dashboardを表示した場合、登録済みのタグ一覧が表示されることを確認する。読者が絞り込みに使用できるタグを確認できることを保証するため。
+    def test_dashboard_displays_tags(self):
+        Tag.objects.create(name="Python")
+        Tag.objects.create(name="Django")
+
+        response = self.client.get(
+            reverse("dashboard")
+        )
+
+        self.assertContains(
+            response,
+            "Python"
+        )
+
+        self.assertContains(
+            response,
+            "Django"
+        )
+
+   # タグを指定してDashboardへアクセスした場合、そのタグが付いた記事だけ表示されることを確認する。タグによる記事の絞り込みが正しく機能することを保証するため。
+    def test_dashboard_filters_articles_by_selected_tag(self):
+        tag_python = Tag.objects.create(name="Python")
+        tag_django = Tag.objects.create(name="Django")
+
+        python_article = Article.objects.create(
+            title="Pythonの記事",
+            body="Pythonの記事本文",
+            is_pinned=False,
+        )
+
+        django_article = Article.objects.create(
+            title="Djangoの記事",
+            body="Djangoの記事本文",
+            is_pinned=False,
+        )
+
+        python_article.tags.add(tag_python)
+        django_article.tags.add(tag_django)
+
+        response = self.client.get(
+            reverse("dashboard"),
+            {"tag": tag_python.name},
+        )
+
+        self.assertContains(
+            response,
+            python_article.title,
+        )
+
+        self.assertNotContains(
+            response,
+            django_article.title,
+        )
+
+    # 「すべて」のリンクがDashboardを指すことを確認する。タグ絞り込み後に全記事表示へ戻れる導線を保証するため。
+    def test_dashboard_all_link_points_to_dashboard(self):
+        response = self.client.get(
+            reverse("dashboard")
+        )
+
+        dashboard_url = reverse("dashboard")
+
+        self.assertContains(
+            response,
+            f'href="{dashboard_url}"'
+        )
+
+    # Dashboardの各タグリンクが、それぞれのタグで絞り込むURLを指すことを確認する。読者が選択したタグの記事一覧へ正しく移動できることを保証するため。
+    def test_dashboard_tag_links_point_to_each_filter(self):
+        tag_python = Tag.objects.create(name="Python")
+        tag_django = Tag.objects.create(name="Django")
+
+        response = self.client.get(
+            reverse("dashboard")
+        )
+
+        python_url = f'{reverse("dashboard")}?tag={tag_python.name}'
+        django_url = f'{reverse("dashboard")}?tag={tag_django.name}'
+
+        self.assertContains(
+            response,
+            f'href="{python_url}"'
+        )
+
+        self.assertContains(
+            response,
+            f'href="{django_url}"'
+        )
