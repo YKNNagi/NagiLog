@@ -1,6 +1,6 @@
 from django.shortcuts import render,redirect
 from .models import Article, Tag
-from .forms import ArticleForm
+from .forms import ArticleForm, TagForm
 from django.shortcuts import get_object_or_404
 
 def create(request):
@@ -73,3 +73,20 @@ def delete(request, pk):
         "blog/article_confirm_delete.html",
         context,
     )
+
+def tag_create(request):
+    if request.method == "POST":
+        form = TagForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("dashboard")
+
+    else:
+        form = TagForm()
+
+    context = {
+        "form": form,
+    }
+
+    return render(request, "blog/tag_form.html", context)

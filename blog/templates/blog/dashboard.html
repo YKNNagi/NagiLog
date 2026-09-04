@@ -1,5 +1,6 @@
 <a href="/dashboard/">すべて</a>
 
+<a href="{% url 'tag_create' %}">タグ作成</a>
 {% for tag in tags %}
     <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
 {% endfor %}
