@@ -114,6 +114,77 @@ class ArticleFormTest(TestCase):
         self.assertFalse(form.is_valid())
 
 
+class TagFormTest(TestCase):
+    # 半角英数字のタグ名を入力した場合、TagFormが有効になることを確認する。正しいタグ名を作成できることを保証するため。
+    def test_tag_form_accepts_valid_name(self):
+        form = TagForm(
+            data={
+                "name": "python1",
+            }
+        )
+
+        self.assertTrue(form.is_valid())
+
+    # 大文字を含むタグ名を入力した場合、小文字へ正規化されることを確認する。タグ名の表記揺れを防ぐため。
+    def test_tag_form_normalizes_name_to_lowercase(self):
+        form = TagForm(
+            data={
+                "name": "Python",
+            }
+        )
+
+        self.assertTrue(form.is_valid())
+        self.assertEqual(
+            form.cleaned_data["name"],
+            "python"
+        )
+
+    # 日本語を含むタグ名を入力した場合、TagFormが無効になることを確認する。半角英数字以外のタグが作成されることを防ぐため。
+    def test_tag_form_rejects_non_ascii_name(self):
+        form = TagForm(
+            data={
+                "name": "日本語",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            "タグ名は半角英数字のみ使用できます。",
+            form.errors["name"]
+        )
+
+    # 記号を含むタグ名を入力した場合、TagFormが無効になることを確認する。半角英数字以外のタグが作成されることを防ぐため。
+    def test_tag_form_rejects_symbol_name(self):
+        form = TagForm(
+            data={
+                "name": "Python!",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            "タグ名は半角英数字のみ使用できます。",
+            form.errors["name"]
+        )
+
+    # 既存タグと大文字小文字だけが異なるタグ名を入力した場合、TagFormが無効になることを確認する。表記揺れによる重複タグの作成を防ぐため。
+    def test_tag_form_rejects_duplicate_name_case_insensitive(self):
+        Tag.objects.create(
+            name="python"
+        )
+        form = TagForm(
+            data={
+                "name": "Python",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            "同じタグがすでに存在します。",
+            form.errors["name"]
+        )
+
+
 class ArticleModelTest(TestCase):
     def setUp(self):
         self.tag = Tag.objects.create(name="python")
@@ -185,6 +256,28 @@ class ArticleCreateViewTest(TestCase):
         self.assertEqual(article.title, "有効な記事タイトル")
         self.assertEqual(article.body, "有効な記事本文")
 
+    # 正常なPOST後にDashboardへリダイレクトされることを確認する。再送信を避けて保存後の一覧へ移動するため。
+    def test_create_with_valid_data_redirects_to_dashboard(self):
+        response = self.client.post("/create/", self.valid_post_data)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, "/dashboard/")
+
+    # タグ付きのPOSTで記事とタグが関連付けられることを確認する。選択した分類が保存時に失われないことを保証するため。
+    def test_create_with_tags_saves_tag_relation(self):
+        tag = Tag.objects.create(name="python")
+        data = {
+            "title": "Python学習記録",
+            "body": "Pythonの基本を学習した記録",
+            "tags": [tag.id],
+            "is_pinned": False,
+        }
+
+        self.client.post("/create/", data)
+        article = Article.objects.get(title="Python学習記録")
+
+        self.assertIn(tag, article.tags.all())
+
     # 不正なPOSTで記事が保存されないことを確認する。入力エラーによる不完全な記事作成を防ぐため。
     def test_create_with_invalid_data_does_not_save_article(self):
         data = {
@@ -216,27 +309,84 @@ class ArticleCreateViewTest(TestCase):
             "めちゃくちゃ頑張って書いた記事本文",
         )
 
-    # 正常なPOST後にDashboardへリダイレクトされることを確認する。再送信を避けて保存後の一覧へ移動するため。
-    def test_create_with_valid_data_redirects_to_dashboard(self):
-        response = self.client.post("/create/", self.valid_post_data)
 
-        self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, "/dashboard/")
+class TagCreateViewTest(TestCase):
+    # タグ作成画面へGETでアクセスした場合、正常に表示されることを確認する。タグ作成フォームを利用できることを保証するため。
+    def test_tag_create_get_returns_200(self):
+        response = self.client.get(
+            reverse("tag_create")
+        )
 
-    # タグ付きのPOSTで記事とタグが関連付けられることを確認する。選択した分類が保存時に失われないことを保証するため。
-    def test_create_with_tags_saves_tag_relation(self):
-        tag = Tag.objects.create(name="python")
-        data = {
-            "title": "Python学習記録",
-            "body": "Pythonの基本を学習した記録",
-            "tags": [tag.id],
-            "is_pinned": False,
-        }
+        self.assertEqual(
+            response.status_code,
+            200
+        )
 
-        self.client.post("/create/", data)
-        article = Article.objects.get(title="Python学習記録")
+    # 正しいタグ名をPOSTした場合、タグが小文字へ正規化されて保存されることを確認する。タグ作成処理が正常に機能することを保証するため。
+    def test_tag_create_post_saves_normalized_tag(self):
+        response = self.client.post(
+            reverse("tag_create"),
+            {
+                "name": "Python",
+            }
+        )
 
-        self.assertIn(tag, article.tags.all())
+        self.assertTrue(
+            Tag.objects.filter(name="python").exists()
+        )
+        self.assertRedirects(
+            response,
+            reverse("dashboard")
+        )
+
+    # 日本語を含むタグ名をPOSTした場合、タグが保存されないことを確認する。不正なタグがDBへ保存されることを防ぐため。
+    def test_tag_create_post_with_invalid_name_does_not_save_tag(self):
+        response = self.client.post(
+            reverse("tag_create"),
+            {
+                "name": "日本語",
+            }
+        )
+
+        self.assertFalse(
+            Tag.objects.filter(name="日本語").exists()
+        )
+        self.assertTemplateUsed(
+            response,
+            "blog/tag_form.html"
+        )
+        self.assertContains(
+            response,
+            "タグ名は半角英数字のみ使用できます。"
+        )
+
+    # 既存タグと大文字小文字だけが異なるタグ名をPOSTした場合、新しいタグが保存されないことを確認する。表記揺れによる重複タグの増殖を防ぐため。
+    def test_tag_create_post_with_duplicate_name_does_not_save_tag(self):
+        Tag.objects.create(
+            name="python"
+        )
+
+        response = self.client.post(
+            reverse("tag_create"),
+            {
+                "name": "Python",
+            }
+        )
+
+        self.assertEqual(
+            Tag.objects.count(),
+            1
+        )
+
+        self.assertTemplateUsed(
+            response,
+            "blog/tag_form.html"
+        )
+
+        self.assertContains(
+            response,
+            "同じタグがすでに存在します。"
+        )
 
 
 class DashboardViewTest(TestCase):
@@ -352,6 +502,19 @@ class DashboardViewTest(TestCase):
         self.assertContains(
             response,
             f'href="{django_url}"'
+        )
+
+    # Dashboardのタグ作成リンクがタグ作成画面を指すことを確認する。Dashboardからタグ作成画面へ正しく移動できることを保証するため。
+    def test_dashboard_tag_create_link_points_to_tag_create(self):
+        response = self.client.get(
+            reverse("dashboard")
+        )
+
+        tag_create_url = reverse("tag_create")
+
+        self.assertContains(
+            response,
+            f'href="{tag_create_url}"'
         )
 
     # Dashboardの編集リンクが対象記事のUpdate画面を指すことを確認する。別の記事を誤って編集する導線を防ぐため。
@@ -594,162 +757,3 @@ class ArticleDeleteViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
-
-    # 半角英数字のタグ名を入力した場合、TagFormが有効になることを確認する。正しいタグ名を作成できることを保証するため。
-    def test_tag_form_accepts_valid_name(self):
-        form = TagForm(
-            data={
-                "name": "python1",
-            }
-        )
-
-        self.assertTrue(form.is_valid())
-
-    # 大文字を含むタグ名を入力した場合、小文字へ正規化されることを確認する。タグ名の表記揺れを防ぐため。
-    def test_tag_form_normalizes_name_to_lowercase(self):
-        form = TagForm(
-            data={
-                "name": "Python",
-            }
-        )
-
-        self.assertTrue(form.is_valid())
-        self.assertEqual(
-            form.cleaned_data["name"],
-            "python"
-        )
-
-    # 日本語を含むタグ名を入力した場合、TagFormが無効になることを確認する。半角英数字以外のタグが作成されることを防ぐため。
-    def test_tag_form_rejects_non_ascii_name(self):
-        form = TagForm(
-            data={
-                "name": "日本語",
-            }
-        )
-
-        self.assertFalse(form.is_valid())
-        self.assertIn(
-            "タグ名は半角英数字のみ使用できます。",
-            form.errors["name"]
-        )
-
-    # 記号を含むタグ名を入力した場合、TagFormが無効になることを確認する。半角英数字以外のタグが作成されることを防ぐため。
-    def test_tag_form_rejects_symbol_name(self):
-        form = TagForm(
-                    data={
-                        "name": "Python!",
-                    }
-        )
-        
-        self.assertFalse(form.is_valid())
-        self.assertIn(
-            "タグ名は半角英数字のみ使用できます。",
-            form.errors["name"]
-        )
-
-    # 既存タグと大文字小文字だけが異なるタグ名を入力した場合、TagFormが無効になることを確認する。表記揺れによる重複タグの作成を防ぐため。
-    def test_tag_form_rejects_duplicate_name_case_insensitive(self):
-        Tag.objects.create(
-            name="python"
-        )
-        form = TagForm(
-            data={
-            "name": "Python",
-                }
-        )
-
-        self.assertFalse(form.is_valid())
-        self.assertIn(
-            "同じタグがすでに存在します。",
-            form.errors["name"]
-        )
-
-    # タグ作成画面へGETでアクセスした場合、正常に表示されることを確認する。タグ作成フォームを利用できることを保証するため。
-    def test_tag_create_get_returns_200(self):
-        response = self.client.get(
-        reverse("tag_create")
-        )
-
-        self.assertEqual(
-            response.status_code,
-            200
-        )
-
-    # 正しいタグ名をPOSTした場合、タグが小文字へ正規化されて保存されることを確認する。タグ作成処理が正常に機能することを保証するため。
-    def test_tag_create_post_saves_normalized_tag(self):
-        response = self.client.post(
-        reverse("tag_create"),
-            {
-                "name": "Python",
-            }
-        )
-
-        self.assertTrue(
-            Tag.objects.filter(name="python").exists()
-        )
-        self.assertRedirects(
-            response,
-            reverse("dashboard")
-        )
-
-    # 日本語を含むタグ名をPOSTした場合、タグが保存されないことを確認する。不正なタグがDBへ保存されることを防ぐため。
-    def test_tag_create_post_with_invalid_name_does_not_save_tag(self):
-        response = self.client.post(
-        reverse("tag_create"),
-            {
-                "name": "日本語",
-            }
-        )
-
-        self.assertFalse(
-            Tag.objects.filter(name="日本語").exists()
-        )
-        self.assertTemplateUsed(
-            response,
-            "blog/tag_form.html"
-        )
-        self.assertContains(
-            response,
-            "タグ名は半角英数字のみ使用できます。"
-        )
-
-    # 既存タグと大文字小文字だけが異なるタグ名をPOSTした場合、新しいタグが保存されないことを確認する。表記揺れによる重複タグの増殖を防ぐため。
-    def test_tag_create_post_with_duplicate_name_does_not_save_tag(self):
-        Tag.objects.create(
-            name="python"
-        )
-
-        response = self.client.post(
-            reverse("tag_create"),
-            {
-                "name": "Python",
-            }
-        )
-
-        self.assertEqual(
-            Tag.objects.count(),
-            1
-        )
-
-        self.assertTemplateUsed(
-            response,
-            "blog/tag_form.html"
-        )
-
-        self.assertContains(
-            response,
-            "同じタグがすでに存在します。"
-        )
-
-    # Dashboardのタグ作成リンクがタグ作成画面を指すことを確認する。Dashboardからタグ作成画面へ正しく移動できることを保証するため。
-    def test_dashboard_tag_create_link_points_to_tag_create(self):
-        response = self.client.get(
-        reverse("dashboard")
-        )
-
-        tag_create_url = reverse("tag_create")
-
-        self.assertContains(
-            response,
-            f'href="{tag_create_url}"'
-        )
