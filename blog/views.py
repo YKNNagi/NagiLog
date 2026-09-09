@@ -21,7 +21,7 @@ def create(request):
     return render(request, "blog/article_form.html", context)
 
 def dashboard(request):
-    articles = Article.objects.all()
+    articles = Article.objects.all().order_by("-created_at")
     tags = Tag.objects.all()
 
     selected_tag = request.GET.get("tag")

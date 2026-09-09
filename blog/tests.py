@@ -550,6 +550,35 @@ class DashboardViewTest(TestCase):
         self.assertContains(response, python_delete_url)
         self.assertContains(response, django_delete_url)
 
+    # Dashboardの記事が作成日時の新しい順に並ぶことを確認する。最新の記事を先頭から確認できることを保証するため。
+    def test_dashboard_displays_articles_newest_first(self):
+        old_article = Article.objects.create(
+            title="古い記事",
+            body="古い記事本文",
+            is_pinned=False,
+        )
+
+        new_article = Article.objects.create(
+            title="新しい記事",
+            body="新しい記事本文",
+            is_pinned=False,
+        )
+
+        response = self.client.get(
+            reverse("dashboard")
+        )
+
+        articles = response.context["articles"]
+
+        self.assertEqual(
+            articles[0],
+            new_article,
+        )
+        self.assertEqual(
+            articles[1],
+            old_article,
+        )
+
 
 class ArticleUpdateViewTest(TestCase):
     def setUp(self):
