@@ -9,6 +9,11 @@
     <div id="tag-buttons"></div>
     {{ form.is_pinned }}
 
-    <button type="submit">投稿する</button>
+    {% if form.instance.pk %}
+        <button type="submit">更新する</button>
+    {% else %}
+        <button type="submit">投稿する</button>
+    {% endif %}
 </form>
+<a href="{% url 'dashboard' %}">キャンセルして戻る</a>
 <script src="{% static 'blog/js/article_form.js' %}"></script>
