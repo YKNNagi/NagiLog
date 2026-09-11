@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
+from django.contrib.auth import get_user_model
 
 from .forms import ArticleForm,TagForm
 from .models import Article, Tag
@@ -232,7 +233,19 @@ class ArticleModelTest(TestCase):
 
 class ArticleCreateViewTest(TestCase):
     def setUp(self):
-        # 保存と遷移のテストで同じ正常入力を使い、各テストの違いを結果の確認へ集中させる。
+        User = get_user_model()
+
+        self.admin_user = User.objects.create_superuser(
+            username="admin",
+            password="testpass123",
+        )
+
+        self.client.login(
+            username="admin",
+            password="testpass123",
+        )
+
+        # 保存と遷移のテストで同じ正常入力を使い、各テストの違いを結果の確認へ集中させる。       
         self.valid_post_data = {
             "title": "有効な記事タイトル",
             "body": "有効な記事本文",
@@ -311,6 +324,19 @@ class ArticleCreateViewTest(TestCase):
 
 
 class TagCreateViewTest(TestCase):
+    def setUp(self):
+        User = get_user_model()
+
+        self.admin_user = User.objects.create_superuser(
+            username="admin",
+            password="testpass123",
+        )
+
+        self.client.login(
+            username="admin",
+            password="testpass123",
+        )
+
     # タグ作成画面へGETでアクセスした場合、正常に表示されることを確認する。タグ作成フォームを利用できることを保証するため。
     def test_tag_create_get_returns_200(self):
         response = self.client.get(
@@ -390,6 +416,19 @@ class TagCreateViewTest(TestCase):
 
 
 class DashboardViewTest(TestCase):
+    def setUp(self):
+        User = get_user_model()
+
+        self.admin_user = User.objects.create_superuser(
+            username="admin",
+            password="testpass123",
+        )
+
+        self.client.login(
+            username="admin",
+            password="testpass123",
+        )
+
     # GETでDashboardと対応テンプレートが返ることを確認する。記事一覧へ正常にアクセスできることを保証するため。
     def test_dashboard_on_get_returns_success(self):
         response = self.client.get("/dashboard/")
@@ -582,6 +621,18 @@ class DashboardViewTest(TestCase):
 
 class ArticleUpdateViewTest(TestCase):
     def setUp(self):
+        User = get_user_model()
+
+        self.admin_user = User.objects.create_superuser(
+            username="admin",
+            password="testpass123",
+        )
+
+        self.client.login(
+            username="admin",
+            password="testpass123",
+        )
+
         self.article = Article.objects.create(
             title="更新前の記事タイトル",
             body="更新前の記事本文",
@@ -731,6 +782,17 @@ class ArticleUpdateViewTest(TestCase):
 
 class ArticleDeleteViewTest(TestCase):
     def setUp(self):
+        User = get_user_model()
+        
+        self.admin_user = User.objects.create_superuser(
+            username="admin",
+            password="testpass123",
+        )
+        
+        self.client.login(
+            username="admin",
+            password="testpass123",
+        )
         self.article = Article.objects.create(
             title="削除対象の記事タイトル",
             body="削除対象の記事本文",
@@ -786,3 +848,151 @@ class ArticleDeleteViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+class AccessControlTest(TestCase):
+    # 未ログインで記事作成画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。一般読者が記事を作成できないことを保証するため。
+    def test_create_redirects_unauthenticated_user_to_dashboard(self):
+        response = self.client.get(
+            reverse("create")
+        )
+        self.assertRedirects(
+            response,
+            reverse("dashboard")
+        )
+
+    # 未ログインでタグ作成画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。一般読者がタグを作成できないことを保証するため。
+    def test_tag_create_redirects_unauthenticated_user_to_dashboard(self):
+        response = self.client.get(
+            reverse("tag_create")
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard")
+        )
+
+    # 未ログインで記事編集画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。一般読者が記事を編集できないことを保証するため。
+    def test_update_redirects_unauthenticated_user_to_dashboard(self):
+        article = Article.objects.create(
+            title="編集対象の記事",
+            body="編集対象の記事本文",
+            is_pinned=False,
+        )
+
+        response = self.client.get(
+            reverse("update", args=[article.id])
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard")
+        )
+
+    # 未ログインで記事削除画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。一般読者が記事を削除できないことを保証するため。
+    def test_delete_redirects_unauthenticated_user_to_dashboard(self):
+        article = Article.objects.create(
+            title="削除対象の記事",
+            body="削除対象の記事本文",
+            is_pinned=False,
+        )
+        
+        response = self.client.get(
+            reverse("delete", args=[article.id])
+        )
+        
+        self.assertRedirects(
+            response,
+            reverse("dashboard")
+        )
+
+    # 一般ユーザーで記事作成画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。ログイン済みでも管理者以外が記事を作成できないことを保証するため。
+    def test_create_redirects_non_superuser_to_dashboard(self):
+        User = get_user_model()
+        user = User.objects.create_user(
+            username="normaluser",
+            password="testpass123",
+        )
+
+        self.client.login(
+            username="normaluser",
+            password="testpass123",
+        )
+
+        response = self.client.get(
+            reverse("create")
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("dashboard")
+        )
+
+    # 未ログインでDashboardへアクセスした場合、管理用リンクが表示されないことを確認する。一般読者に記事やタグの管理操作を見せないことを保証するため。
+    def test_dashboard_hides_admin_links_from_unauthenticated_user(self):
+        response = self.client.get(
+        reverse("dashboard")
+        )
+
+        self.assertNotContains(
+            response,
+            "新規記事作成",
+        )
+
+        self.assertNotContains(
+            response,
+            "タグ作成",
+        )
+
+        self.assertNotContains(
+            response,
+            "編集",
+        )
+
+        self.assertNotContains(
+            response,
+            "削除",
+        )
+
+    # 管理者でDashboardへアクセスした場合、管理用リンクが表示されることを確認する。管理者が記事やタグの管理操作を行えることを保証するため。
+    def test_dashboard_shows_admin_links_for_superuser(self):
+        Article.objects.create(
+            title="管理対象の記事",
+            body="管理対象の記事本文",
+            is_pinned=False,
+        )
+
+        User = get_user_model()
+                
+        self.admin_user = User.objects.create_superuser(
+            username="admin",
+            password="testpass123",
+        )
+                
+        self.client.login(
+            username="admin",
+            password="testpass123",
+        )
+
+        response = self.client.get(
+            reverse("dashboard")
+        )
+
+        self.assertContains(
+            response,
+            "新規記事作成",
+        )
+        
+        self.assertContains(
+            response,
+            "タグ作成",
+        )
+        
+        self.assertContains(
+            response,
+            "編集",
+        )
+        
+        self.assertContains(
+            response,
+            "削除",
+        )

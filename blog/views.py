@@ -2,7 +2,14 @@ from django.shortcuts import render,redirect
 from .models import Article, Tag
 from .forms import ArticleForm, TagForm
 from django.shortcuts import get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import user_passes_test
 
+@user_passes_test(
+    lambda user: user.is_superuser,
+    login_url="dashboard",
+    redirect_field_name=None,
+)
 def create(request):
     if request.method == "POST":
         form = ArticleForm(request.POST)
@@ -38,6 +45,11 @@ def dashboard(request):
 
     return render(request, "blog/dashboard.html", context)
 
+@user_passes_test(
+    lambda user: user.is_superuser,
+    login_url="dashboard",
+    redirect_field_name=None,
+)
 def update(request, pk):
     article = get_object_or_404(Article, pk=pk)
 
@@ -57,6 +69,11 @@ def update(request, pk):
 
     return render(request, "blog/article_form.html", context)
 
+@user_passes_test(
+    lambda user: user.is_superuser,
+    login_url="dashboard",
+    redirect_field_name=None,
+)
 def delete(request, pk):
     article = get_object_or_404(Article, pk=pk)
 
@@ -74,6 +91,11 @@ def delete(request, pk):
         context,
     )
 
+@user_passes_test(
+    lambda user: user.is_superuser,
+    login_url="dashboard",
+    redirect_field_name=None,
+)
 def tag_create(request):
     if request.method == "POST":
         form = TagForm(request.POST)

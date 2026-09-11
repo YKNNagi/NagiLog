@@ -1,8 +1,13 @@
 <a href="/dashboard/">すべて</a>
 
+{% if user.is_superuser %}
+
 <a href="{% url 'create' %}">新規記事作成</a>
 
 <a href="{% url 'tag_create' %}">タグ作成</a>
+
+{% endif %}
+
 {% for tag in tags %}
     <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
 {% endfor %}
@@ -14,7 +19,9 @@
         <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
     {% endfor %}
 
+    {% if user.is_superuser %}
     <a href="{% url 'update' article.pk %}">編集</a>
     <a href="{% url 'delete' article.pk %}">削除</a>
+    {% endif %}
 
 {% endfor %}
