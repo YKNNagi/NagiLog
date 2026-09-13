@@ -5,8 +5,18 @@ class ArticleForm(forms.ModelForm):
     class Meta:
         model = Article
         fields = [
-            "title","body","tags","is_pinned"
+            "title", "body", "tags", "is_pinned"
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        pinned_article_exists = Article.objects.filter(
+            is_pinned=True
+        ).exists()
+
+        if pinned_article_exists and not self.instance.is_pinned:
+            self.fields["is_pinned"].disabled = True
 
 class TagForm(forms.ModelForm):
     class Meta:

@@ -114,6 +114,53 @@ class ArticleFormTest(TestCase):
 
         self.assertFalse(form.is_valid())
 
+    # 固定記事がすでに存在する場合、記事作成フォームの固定チェックが無効になることを確認する。固定記事が複数設定されることを防ぐため。
+    def test_is_pinned_disabled_when_pinned_article_exists(self):
+        Article.objects.create(
+            title="固定記事",
+            body="固定記事本文",
+            is_pinned=True,
+        )
+    
+        form = ArticleForm()
+    
+        self.assertTrue(form.fields["is_pinned"].disabled)
+
+    # 固定記事が存在しない場合、記事作成フォームの固定チェックが有効であることを確認する。固定記事を新しく設定できることを保証するため。
+    def test_is_pinned_enabled_when_no_pinned_article_exists(self):
+        form = ArticleForm()
+
+        self.assertFalse(form.fields["is_pinned"].disabled)
+
+    # 固定記事が存在する場合、通常記事の編集フォームでは固定チェックが無効になることを確認する。別の記事を固定記事に変更できないことを保証するため。
+    def test_is_pinned_disabled_when_updating_normal_article(self):
+        Article.objects.create(
+            title="固定記事",
+            body="固定記事本文",
+            is_pinned=True,
+        )
+
+        normal_article = Article.objects.create(
+            title="通常記事",
+            body="通常記事本文",
+            is_pinned=False,
+        )
+
+        form = ArticleForm(instance=normal_article)
+
+        self.assertTrue(form.fields["is_pinned"].disabled)
+
+    # 固定記事自身を編集する場合、固定チェックが有効であることを確認する。固定記事を解除できることを保証するため。
+    def test_is_pinned_enabled_when_updating_pinned_article(self):
+        pinned_article = Article.objects.create(
+            title="固定記事",
+            body="固定記事本文",
+            is_pinned=True,
+        )
+
+        form = ArticleForm(instance=pinned_article)
+
+        self.assertFalse(form.fields["is_pinned"].disabled)
 
 class TagFormTest(TestCase):
     # 半角英数字のタグ名を入力した場合、TagFormが有効になることを確認する。正しいタグ名を作成できることを保証するため。
@@ -321,6 +368,69 @@ class ArticleCreateViewTest(TestCase):
             form["body"].value(),
             "めちゃくちゃ頑張って書いた記事本文",
         )
+
+    # 固定記事が存在しない場合、固定記事として記事を作成できることを確認する。固定記事の新規設定が正常に保存されることを保証するため。
+    def test_create_can_save_pinned_article_when_none_exists(self):
+        self.client.post(
+            reverse("create"),
+            {
+                "title": "固定記事",
+                "body": "固定記事本文",
+                "is_pinned": True,
+            },
+        )
+
+        article = Article.objects.get(title="固定記事")
+
+        self.assertTrue(article.is_pinned)
+
+    # 固定記事がすでに存在する場合、別の記事を固定状態でPOSTしても固定記事として保存されないことを確認する。固定記事が通常操作で複数設定されないことを保証するため。
+    def test_create_cannot_save_second_pinned_article(self):
+        Article.objects.create(
+            title="既存の固定記事",
+            body="既存の固定記事本文",
+            is_pinned=True,
+        )
+
+        self.client.post(
+            reverse("create"),
+            {
+                "title": "2件目の記事",
+                "body": "2件目の記事本文",
+                "is_pinned": True,
+            },
+        )
+
+        article = Article.objects.get(title="2件目の記事")
+
+        self.assertFalse(article.is_pinned)
+
+    # 固定記事がすでに存在する場合、通常記事を固定状態で更新しようとしても固定記事にならないことを確認する。更新操作から固定記事が複数設定されないことを保証するため。
+    def test_update_cannot_pin_normal_article_when_pinned_article_exists(self):
+        Article.objects.create(
+            title="既存の固定記事",
+            body="既存の固定記事本文",
+            is_pinned=True,
+        )
+
+        normal_article = Article.objects.create(
+            title="通常記事",
+            body="通常記事本文",
+            is_pinned=False,
+        )
+
+        self.client.post(
+            reverse("update", args=[normal_article.id]),
+            {
+                "title": "通常記事",
+                "body": "通常記事本文",
+                "is_pinned": True,
+            },
+        )
+
+        normal_article.refresh_from_db()
+
+        self.assertFalse(normal_article.is_pinned)
 
 
 class TagCreateViewTest(TestCase):
@@ -618,6 +728,26 @@ class DashboardViewTest(TestCase):
             old_article,
         )
 
+    # 固定記事が存在する場合、作成日時に関係なくDashboardの先頭に表示されることを確認する。固定記事が常に最優先で表示されることを保証するため。
+    def test_dashboard_displays_pinned_article_first(self):
+        pinned_article = Article.objects.create(
+            title="古い固定記事",
+            body="古い固定記事本文",
+            is_pinned=True,
+        )
+
+        new_article = Article.objects.create(
+            title="新しい通常記事",
+            body="新しい通常記事本文",
+            is_pinned=False,
+        )
+
+        response = self.client.get(reverse("dashboard"))
+
+        articles = response.context["articles"]
+
+        self.assertEqual(articles[0], pinned_article)
+
 
 class ArticleUpdateViewTest(TestCase):
     def setUp(self):
@@ -778,6 +908,27 @@ class ArticleUpdateViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    # 固定記事自身を固定解除して更新できることを確認する。固定記事を別の記事へ切り替えられる状態に戻せることを保証するため。
+    def test_update_can_unpin_pinned_article(self):
+        pinned_article = Article.objects.create(
+            title="固定記事",
+            body="固定記事本文",
+            is_pinned=True,
+        )
+
+        self.client.post(
+            reverse("update", args=[pinned_article.id]),
+            {
+                "title": "固定記事",
+                "body": "固定記事本文",
+                "is_pinned": False,
+            },
+        )
+
+        pinned_article.refresh_from_db()
+
+        self.assertFalse(pinned_article.is_pinned)
 
 
 class ArticleDeleteViewTest(TestCase):
@@ -995,4 +1146,20 @@ class AccessControlTest(TestCase):
         self.assertContains(
             response,
             "削除",
+        )
+
+    # 未ログインで削除処理へ直接POSTしても記事が削除されないことを確認する。画面を経由しない不正な削除操作を防げることを保証するため。
+    def test_delete_post_does_not_delete_article_for_unauthenticated_user(self):
+        article = Article.objects.create(
+            title="削除させない記事",
+            body="削除させない記事本文",
+            is_pinned=False,
+        )
+
+        self.client.post(
+            reverse("delete", args=[article.id])
+        )
+
+        self.assertTrue(
+            Article.objects.filter(id=article.id).exists()
         )

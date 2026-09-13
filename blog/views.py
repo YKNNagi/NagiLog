@@ -1,9 +1,9 @@
-from django.shortcuts import render,redirect
-from .models import Article, Tag
-from .forms import ArticleForm, TagForm
-from django.shortcuts import get_object_or_404
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import ArticleForm, TagForm
+from .models import Article, Tag
+
 
 @user_passes_test(
     lambda user: user.is_superuser,
@@ -27,16 +27,19 @@ def create(request):
 
     return render(request, "blog/article_form.html", context)
 
+
 def dashboard(request):
-    articles = Article.objects.all().order_by("-created_at")
+    articles = Article.objects.all().order_by(
+        "-is_pinned",
+        "-created_at",
+    )
+
     tags = Tag.objects.all()
 
     selected_tag = request.GET.get("tag")
 
     if selected_tag:
-        articles = articles.filter(
-            tags__name=selected_tag
-        )
+        articles = articles.filter(tags__name=selected_tag)
 
     context = {
         "articles": articles,
@@ -44,6 +47,7 @@ def dashboard(request):
     }
 
     return render(request, "blog/dashboard.html", context)
+
 
 @user_passes_test(
     lambda user: user.is_superuser,
@@ -69,6 +73,7 @@ def update(request, pk):
 
     return render(request, "blog/article_form.html", context)
 
+
 @user_passes_test(
     lambda user: user.is_superuser,
     login_url="dashboard",
@@ -90,6 +95,7 @@ def delete(request, pk):
         "blog/article_confirm_delete.html",
         context,
     )
+
 
 @user_passes_test(
     lambda user: user.is_superuser,
