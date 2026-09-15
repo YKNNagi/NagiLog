@@ -1,8 +1,8 @@
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from django.contrib.auth import get_user_model
 
-from .forms import ArticleForm,TagForm
+from .forms import ArticleForm, TagForm
 from .models import Article, Tag
 
 
@@ -121,9 +121,9 @@ class ArticleFormTest(TestCase):
             body="固定記事本文",
             is_pinned=True,
         )
-    
+
         form = ArticleForm()
-    
+
         self.assertTrue(form.fields["is_pinned"].disabled)
 
     # 固定記事が存在しない場合、記事作成フォームの固定チェックが有効であることを確認する。固定記事を新しく設定できることを保証するため。
@@ -161,6 +161,7 @@ class ArticleFormTest(TestCase):
         form = ArticleForm(instance=pinned_article)
 
         self.assertFalse(form.fields["is_pinned"].disabled)
+
 
 class TagFormTest(TestCase):
     # 半角英数字のタグ名を入力した場合、TagFormが有効になることを確認する。正しいタグ名を作成できることを保証するため。
@@ -292,7 +293,7 @@ class ArticleCreateViewTest(TestCase):
             password="testpass123",
         )
 
-        # 保存と遷移のテストで同じ正常入力を使い、各テストの違いを結果の確認へ集中させる。       
+        # 保存と遷移のテストで同じ正常入力を使い、各テストの違いを結果の確認へ集中させる。
         self.valid_post_data = {
             "title": "有効な記事タイトル",
             "body": "有効な記事本文",
@@ -934,12 +935,12 @@ class ArticleUpdateViewTest(TestCase):
 class ArticleDeleteViewTest(TestCase):
     def setUp(self):
         User = get_user_model()
-        
+
         self.admin_user = User.objects.create_superuser(
             username="admin",
             password="testpass123",
         )
-        
+
         self.client.login(
             username="admin",
             password="testpass123",
@@ -1000,6 +1001,7 @@ class ArticleDeleteViewTest(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+
 class AccessControlTest(TestCase):
     # 未ログインで記事作成画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。一般読者が記事を作成できないことを保証するため。
     def test_create_redirects_unauthenticated_user_to_dashboard(self):
@@ -1046,17 +1048,18 @@ class AccessControlTest(TestCase):
             body="削除対象の記事本文",
             is_pinned=False,
         )
-        
+
         response = self.client.get(
             reverse("delete", args=[article.id])
         )
-        
+
         self.assertRedirects(
             response,
             reverse("dashboard")
         )
 
-    # 一般ユーザーで記事作成画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。ログイン済みでも管理者以外が記事を作成できないことを保証するため。
+    # 一般ユーザーで記事作成画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。
+    # ログイン済みでも管理者以外が記事を作成できないことを保証するため。
     def test_create_redirects_non_superuser_to_dashboard(self):
         User = get_user_model()
         user = User.objects.create_user(
@@ -1113,12 +1116,12 @@ class AccessControlTest(TestCase):
         )
 
         User = get_user_model()
-                
+
         self.admin_user = User.objects.create_superuser(
             username="admin",
             password="testpass123",
         )
-                
+
         self.client.login(
             username="admin",
             password="testpass123",
@@ -1132,17 +1135,17 @@ class AccessControlTest(TestCase):
             response,
             "新規記事作成",
         )
-        
+
         self.assertContains(
             response,
             "タグ作成",
         )
-        
+
         self.assertContains(
             response,
             "編集",
         )
-        
+
         self.assertContains(
             response,
             "削除",
