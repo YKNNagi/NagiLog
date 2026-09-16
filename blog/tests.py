@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from .markdown import render_markdown
 
 from .forms import ArticleForm, TagForm
 from .models import Article, Tag
@@ -1166,3 +1167,30 @@ class AccessControlTest(TestCase):
         self.assertTrue(
             Article.objects.filter(id=article.id).exists()
         )
+
+class MarkdownTest(TestCase):
+    # 見出しのMarkdownが許可されたHTMLへ変換されることを確認する。正常なMarkdown表示が維持されることを保証するため。
+    def test_render_markdown_converts_heading(self):
+        result = render_markdown("# うさぎ")
+
+        self.assertEqual(result, "<h1>うさぎ</h1>")
+
+    # scriptタグを含むMarkdownを変換した場合、scriptタグが除去されることを確認する。危険なスクリプトがHTMLとして実行されないことを保証するため。
+    def test_render_markdown_removes_script_tag(self):
+        result = render_markdown(
+            '<script>alert("ぷにゃ侵入！")</script>\n\n# 普通のうさぎ'
+        )
+
+        self.assertNotIn("<script>", result)
+        self.assertNotIn("</script>", result)
+        self.assertIn("<h1>普通のうさぎ</h1>", result)
+
+    # javascriptプロトコルを含むリンクを変換した場合、危険なhref属性が除去されることを確認する。リンクからJavaScriptが実行されないことを保証するため。
+    def test_render_markdown_removes_javascript_protocol(self):
+        result = render_markdown(
+            "[侵入ぷにゃ](javascript:alert('ぷにゃ侵入！'))"
+        )
+
+        self.assertNotIn("javascript:", result)
+        self.assertNotIn("href=", result)
+        self.assertIn("侵入ぷにゃ", result)

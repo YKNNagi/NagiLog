@@ -3,6 +3,8 @@ const titleCount = document.getElementById("title-count");
 const tagSelect = document.getElementById("id_tags");
 const tagButtons = document.getElementById("tag-buttons");
 const tagOptions = tagSelect.querySelectorAll("option");
+const bodyInput = document.getElementById("id_body");
+const markdownPreview = document.getElementById("markdown-preview");
 
 function updateTitleCount() {
     const count = titleInput.value.length;
@@ -44,3 +46,15 @@ tagOptions.forEach(function (option) {
 });
 
 tagSelect.style.display = "none";
+
+
+function updateMarkdownPreview() {
+    const markdownHtml = marked.parse(bodyInput.value);
+    const safeHtml = DOMPurify.sanitize(markdownHtml);
+
+    markdownPreview.innerHTML = safeHtml;
+}
+
+bodyInput.addEventListener("input", updateMarkdownPreview);
+
+updateMarkdownPreview();
