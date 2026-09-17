@@ -1,3 +1,4 @@
+{% load markdown_tags %}
 <a href="/dashboard/">すべて</a>
 
 {% if user.is_superuser %}
@@ -15,6 +16,7 @@
 {% for article in articles %}
 
     {{ article.title }}
+    {{ article.body|markdown }}
     {% for tag in article.tags.all %}
         <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
     {% endfor %}

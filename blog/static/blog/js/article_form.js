@@ -50,7 +50,27 @@ tagSelect.style.display = "none";
 
 function updateMarkdownPreview() {
     const markdownHtml = marked.parse(bodyInput.value);
-    const safeHtml = DOMPurify.sanitize(markdownHtml);
+    const safeHtml = DOMPurify.sanitize(markdownHtml, {
+        ALLOWED_TAGS: [
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "p",
+            "strong",
+            "em",
+            "ul",
+            "ol",
+            "li",
+            "blockquote",
+            "code",
+            "pre",
+            "a",
+        ],
+        ALLOWED_ATTR: ["href"],
+    });
 
     markdownPreview.innerHTML = safeHtml;
 }

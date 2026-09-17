@@ -750,6 +750,33 @@ class DashboardViewTest(TestCase):
 
         self.assertEqual(articles[0], pinned_article)
 
+    # Markdownで保存された記事本文がDashboardでHTMLへ変換されて表示されることを確認する。保存済みMarkdownが安全なHTMLとして表示されることを保証するため。
+    def test_dashboard_displays_markdown_body_as_html(self):
+        Article.objects.create(
+            title="Markdownテスト",
+            body="# うさぎ",
+        )
+    
+        response = self.client.get(reverse("dashboard"))
+    
+        self.assertContains(response, "<h1>うさぎ</h1>", html=True)
+
+    # 悪意あるHTMLを含む記事をDashboardに表示した場合、危険な要素や属性が除去されることを確認する。保存済み本文からXSSが実行されないことを保証するため。
+    def test_dashboard_sanitizes_malicious_markdown(self):
+        Article.objects.create(
+            title="侵入テスト",
+            body=(
+                '<script>alert("侵入ぷにゃ")</script>\n\n'
+                '<img src="x" onerror="alert(\'野良ぷにゃお\')">\n\n'
+                "[危険なリンク](javascript:alert('侵入ぷにゃ'))"
+            ),
+        )
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertNotContains(response, "<script")
+        self.assertNotContains(response, "javascript:")
+        self.assertNotContains(response, "onerror")
 
 class ArticleUpdateViewTest(TestCase):
     def setUp(self):
