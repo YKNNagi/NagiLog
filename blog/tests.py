@@ -407,33 +407,6 @@ class ArticleCreateViewTest(TestCase):
 
         self.assertFalse(article.is_pinned)
 
-    # 固定記事がすでに存在する場合、通常記事を固定状態で更新しようとしても固定記事にならないことを確認する。更新操作から固定記事が複数設定されないことを保証するため。
-    def test_update_cannot_pin_normal_article_when_pinned_article_exists(self):
-        Article.objects.create(
-            title="既存の固定記事",
-            body="既存の固定記事本文",
-            is_pinned=True,
-        )
-
-        normal_article = Article.objects.create(
-            title="通常記事",
-            body="通常記事本文",
-            is_pinned=False,
-        )
-
-        self.client.post(
-            reverse("update", args=[normal_article.id]),
-            {
-                "title": "通常記事",
-                "body": "通常記事本文",
-                "is_pinned": True,
-            },
-        )
-
-        normal_article.refresh_from_db()
-
-        self.assertFalse(normal_article.is_pinned)
-
 
 class TagCreateViewTest(TestCase):
     def setUp(self):
@@ -450,7 +423,7 @@ class TagCreateViewTest(TestCase):
         )
 
     # タグ作成画面へGETでアクセスした場合、正常に表示されることを確認する。タグ作成フォームを利用できることを保証するため。
-    def test_tag_create_get_returns_200(self):
+    def test_tag_create_page_on_get_returns_success(self):
         response = self.client.get(
             reverse("tag_create")
         )
@@ -750,15 +723,16 @@ class DashboardViewTest(TestCase):
 
         self.assertEqual(articles[0], pinned_article)
 
-    # Markdownで保存された記事本文がDashboardでプレーンテキストの概要として表示されることを確認する。一覧表示がMarkdown装飾に左右されないことを保証するため。
+    # Markdownで保存された記事本文がDashboardでプレーンテキストの概要として表示されることを確認する。
+    # 一覧表示がMarkdown装飾に左右されないことを保証するため。
     def test_dashboard_displays_markdown_body_as_plain_summary(self):
         Article.objects.create(
             title="Markdownテスト",
             body="# うさぎ\n\nこれは**Markdown**の記事です",
         )
-    
+
         response = self.client.get(reverse("dashboard"))
-    
+
         self.assertContains(
             response,
             "うさぎ これはMarkdownの記事です",
@@ -794,6 +768,7 @@ class DashboardViewTest(TestCase):
         detail_url = reverse("detail", args=[article.id])
 
         self.assertContains(response, detail_url)
+
 
 class ArticleUpdateViewTest(TestCase):
     def setUp(self):
@@ -947,13 +922,32 @@ class ArticleUpdateViewTest(TestCase):
             "更新しようとした記事本文",
         )
 
-    # 存在しない記事IDへアクセスした場合、404になることを確認する。存在しない記事を編集できないことを保証するため。
-    def test_update_with_missing_article_returns_404(self):
-        response = self.client.get(
-            reverse("update", args=[9999])
+    # 固定記事がすでに存在する場合、通常記事を固定状態で更新しようとしても固定記事にならないことを確認する。更新操作から固定記事が複数設定されないことを保証するため。
+    def test_update_cannot_pin_normal_article_when_pinned_article_exists(self):
+        Article.objects.create(
+            title="既存の固定記事",
+            body="既存の固定記事本文",
+            is_pinned=True,
         )
 
-        self.assertEqual(response.status_code, 404)
+        normal_article = Article.objects.create(
+            title="通常記事",
+            body="通常記事本文",
+            is_pinned=False,
+        )
+
+        self.client.post(
+            reverse("update", args=[normal_article.id]),
+            {
+                "title": "通常記事",
+                "body": "通常記事本文",
+                "is_pinned": True,
+            },
+        )
+
+        normal_article.refresh_from_db()
+
+        self.assertFalse(normal_article.is_pinned)
 
     # 固定記事自身を固定解除して更新できることを確認する。固定記事を別の記事へ切り替えられる状態に戻せることを保証するため。
     def test_update_can_unpin_pinned_article(self):
@@ -975,6 +969,14 @@ class ArticleUpdateViewTest(TestCase):
         pinned_article.refresh_from_db()
 
         self.assertFalse(pinned_article.is_pinned)
+
+    # 存在しない記事IDへアクセスした場合、404になることを確認する。存在しない記事を編集できないことを保証するため。
+    def test_update_with_missing_article_returns_404(self):
+        response = self.client.get(
+            reverse("update", args=[9999])
+        )
+
+        self.assertEqual(response.status_code, 404)
 
 
 class ArticleDeleteViewTest(TestCase):
@@ -1103,6 +1105,22 @@ class AccessControlTest(TestCase):
             reverse("dashboard")
         )
 
+    # 未ログインで削除処理へ直接POSTしても記事が削除されないことを確認する。画面を経由しない不正な削除操作を防げることを保証するため。
+    def test_delete_post_does_not_delete_article_for_unauthenticated_user(self):
+        article = Article.objects.create(
+            title="削除させない記事",
+            body="削除させない記事本文",
+            is_pinned=False,
+        )
+
+        self.client.post(
+            reverse("delete", args=[article.id])
+        )
+
+        self.assertTrue(
+            Article.objects.filter(id=article.id).exists()
+        )
+
     # 一般ユーザーで記事作成画面へアクセスした場合、Dashboardへリダイレクトされることを確認する。
     # ログイン済みでも管理者以外が記事を作成できないことを保証するため。
     def test_create_redirects_non_superuser_to_dashboard(self):
@@ -1129,7 +1147,7 @@ class AccessControlTest(TestCase):
     # 未ログインでDashboardへアクセスした場合、管理用リンクが表示されないことを確認する。一般読者に記事やタグの管理操作を見せないことを保証するため。
     def test_dashboard_hides_admin_links_from_unauthenticated_user(self):
         response = self.client.get(
-        reverse("dashboard")
+            reverse("dashboard")
         )
 
         self.assertNotContains(
@@ -1196,23 +1214,8 @@ class AccessControlTest(TestCase):
             "削除",
         )
 
-    # 未ログインで削除処理へ直接POSTしても記事が削除されないことを確認する。画面を経由しない不正な削除操作を防げることを保証するため。
-    def test_delete_post_does_not_delete_article_for_unauthenticated_user(self):
-        article = Article.objects.create(
-            title="削除させない記事",
-            body="削除させない記事本文",
-            is_pinned=False,
-        )
 
-        self.client.post(
-            reverse("delete", args=[article.id])
-        )
-
-        self.assertTrue(
-            Article.objects.filter(id=article.id).exists()
-        )
-
-class MarkdownTest(TestCase):
+class MarkdownRenderingTest(TestCase):
     # 見出しのMarkdownが許可されたHTMLへ変換されることを確認する。正常なMarkdown表示が維持されることを保証するため。
     def test_render_markdown_converts_heading(self):
         result = render_markdown("# うさぎ")
@@ -1229,7 +1232,8 @@ class MarkdownTest(TestCase):
         self.assertNotIn("</script>", result)
         self.assertIn("<h1>普通のうさぎ</h1>", result)
 
-    # javascriptプロトコルを含むリンクを変換した場合、危険なhref属性が除去されることを確認する。リンクからJavaScriptが実行されないことを保証するため。
+    # javascriptプロトコルを含むリンクを変換した場合、危険なhref属性が除去されることを確認する。
+    # リンクからJavaScriptが実行されないことを保証するため。
     def test_render_markdown_removes_javascript_protocol(self):
         result = render_markdown(
             "[侵入ぷにゃ](javascript:alert('ぷにゃ侵入！'))"
@@ -1244,11 +1248,12 @@ class MarkdownTest(TestCase):
         result = render_markdown_summary(
             "# うさぎ\n\nこれは**Markdown**の記事です"
         )
-    
+
         self.assertEqual(
             result,
             "うさぎ これはMarkdownの記事です",
         )
+
 
 class ArticleDetailViewTest(TestCase):
     # 記事詳細ページでタイトルと本文が表示されることを確認する。記事を読む機能が正しく動作することを保証するため。
@@ -1283,7 +1288,7 @@ class ArticleDetailViewTest(TestCase):
     # 存在しない記事IDへアクセスした場合に404が返ることを確認する。存在しない記事を詳細画面として表示しないことを保証するため。
     def test_detail_returns_404_for_missing_article(self):
         response = self.client.get(
-        reverse("detail", args=[9999])
+            reverse("detail", args=[9999])
         )
 
         self.assertEqual(response.status_code, 404)
@@ -1299,7 +1304,7 @@ class ArticleDetailViewTest(TestCase):
         )
 
         response = self.client.get(
-        reverse("detail", args=[article.id])
+            reverse("detail", args=[article.id])
         )
 
         self.assertNotContains(response, "<script")
