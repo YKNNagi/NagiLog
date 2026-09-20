@@ -781,6 +781,20 @@ class DashboardViewTest(TestCase):
         self.assertNotContains(response, "javascript:")
         self.assertNotContains(response, "onerror")
 
+    # Dashboardの「続きを読む」が対象記事のDetail画面を指すことを確認する。読者が正しい記事詳細へ移動できることを保証するため。
+    def test_dashboard_read_more_link_points_to_article_detail(self):
+        article = Article.objects.create(
+            title="詳細リンクテスト",
+            body="記事本文",
+            is_pinned=False,
+        )
+
+        response = self.client.get(reverse("dashboard"))
+
+        detail_url = reverse("detail", args=[article.id])
+
+        self.assertContains(response, detail_url)
+
 class ArticleUpdateViewTest(TestCase):
     def setUp(self):
         User = get_user_model()
@@ -1249,3 +1263,43 @@ class ArticleDetailViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "詳細テスト")
         self.assertContains(response, "<h1>うさぎ</h1>", html=True)
+
+    # 記事詳細ページに記事へ登録されたタグが表示されることを確認する。記事の分類情報を読者が確認できることを保証するため。
+    def test_detail_displays_article_tags(self):
+        tag = Tag.objects.create(name="Django")
+
+        article = Article.objects.create(
+            title="タグ表示テスト",
+            body="記事本文",
+        )
+        article.tags.add(tag)
+
+        response = self.client.get(
+            reverse("detail", args=[article.id])
+        )
+
+        self.assertContains(response, "Django")
+
+    # 存在しない記事IDへアクセスした場合に404が返ることを確認する。存在しない記事を詳細画面として表示しないことを保証するため。
+    def test_detail_returns_404_for_missing_article(self):
+        response = self.client.get(
+        reverse("detail", args=[9999])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    # 記事詳細ページで悪意あるMarkdownを表示した場合、危険なHTMLが出力されないことを確認する。保存済み本文からXSSが実行されないことを保証するため。
+    def test_detail_sanitizes_malicious_markdown(self):
+        article = Article.objects.create(
+            title="XSSテスト",
+            body=(
+                '<script>alert("侵入ぷにゃ")</script>\n\n'
+                "# 安全な見出し"
+            ),
+        )
+
+        response = self.client.get(
+        reverse("detail", args=[article.id])
+        )
+
+        self.assertNotContains(response, "<script")

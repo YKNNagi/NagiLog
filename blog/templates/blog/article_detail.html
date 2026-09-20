@@ -7,9 +7,7 @@
 
     <div>
         {% for tag in article.tags.all %}
-            <a href="{% url 'dashboard' %}?tag={{ tag.name }}"></a>
-                {{ tag.name }}
-            </a>
+            <span>{{ tag.name }}</span>
         {% endfor %}
     </div>
 
