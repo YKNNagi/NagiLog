@@ -1,9 +1,29 @@
-<form method="post">
-    {% csrf_token %}
-    
-    {{ form.name }}
-    {{ form.name.errors }}
-    
-    <button type="submit">タグを作成する</button>
-</form>
-<a href="{% url 'dashboard' %}">キャンセルして戻る</a>
+{% extends "blog/base.html" %}
+
+{% block title %}タグを作成 | NagiLog{% endblock %}
+{% block body_class %}tag-form-page{% endblock %}
+
+{% block content %}
+    <section class="compact-card" aria-labelledby="tag-form-title">
+        <p class="page-heading__eyebrow">Tag</p>
+        <h1 id="tag-form-title">タグを作成</h1>
+        <p>記事を整理するためのタグを追加します。</p>
+
+        <form method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <div class="field-group">
+                <label class="field-label" for="{{ form.name.id_for_label }}">タグ名</label>
+                {{ form.name }}
+                {{ form.name.errors }}
+                <p class="field-hint">半角英数字で入力してください。</p>
+            </div>
+
+            <div class="form-actions">
+                <button class="button button--primary" type="submit">タグを作成する</button>
+                <a class="cancel-link" href="{% url 'dashboard' %}">キャンセルして戻る</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

@@ -1,9 +1,21 @@
-<h1>記事を削除</h1>
+{% extends "blog/base.html" %}
 
-<p>「{{ article.title }}」を削除しますか？</p>
+{% block title %}記事を削除 | NagiLog{% endblock %}
+{% block body_class %}delete-page{% endblock %}
 
-<form method="POST">
-    {% csrf_token %}
-    <button type="submit">削除する</button>
-</form>
-<a href="{% url 'dashboard' %}">キャンセルして戻る</a>
+{% block content %}
+    <section class="danger-card" aria-labelledby="delete-title">
+        <span class="danger-card__label">Danger zone</span>
+        <h1 id="delete-title">記事を削除</h1>
+        <p>「{{ article.title }}」を削除しますか？</p>
+        <p>この操作は取り消せません。</p>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-actions">
+                <button class="button button--danger" type="submit">削除する</button>
+                <a class="cancel-link" href="{% url 'dashboard' %}">キャンセルして戻る</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

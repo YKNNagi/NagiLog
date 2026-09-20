@@ -323,7 +323,7 @@ class ArticleCreateViewTest(TestCase):
         response = self.client.post("/create/", self.valid_post_data)
 
         self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, "/dashboard/")
+        self.assertRedirects(response, reverse("dashboard"))
 
     # タグ付きのPOSTで記事とタグが関連付けられることを確認する。選択した分類が保存時に失われないことを保証するため。
     def test_create_with_tags_saves_tag_relation(self):
@@ -516,7 +516,7 @@ class DashboardViewTest(TestCase):
 
     # GETでDashboardと対応テンプレートが返ることを確認する。記事一覧へ正常にアクセスできることを保証するため。
     def test_dashboard_on_get_returns_success(self):
-        response = self.client.get("/dashboard/")
+        response = self.client.get(reverse("dashboard"))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "blog/dashboard.html")
@@ -534,7 +534,7 @@ class DashboardViewTest(TestCase):
             is_pinned=False,
         )
 
-        response = self.client.get("/dashboard/")
+        response = self.client.get(reverse("dashboard"))
 
         self.assertContains(response, "Python学習記録")
         self.assertContains(response, "Django学習記録")
@@ -649,7 +649,7 @@ class DashboardViewTest(TestCase):
             is_pinned=False,
         )
 
-        response = self.client.get("/dashboard/")
+        response = self.client.get(reverse("dashboard"))
         update_url = reverse("update", args=[article.id])
 
         self.assertContains(response, update_url)
@@ -667,7 +667,7 @@ class DashboardViewTest(TestCase):
             is_pinned=False,
         )
 
-        response = self.client.get("/dashboard/")
+        response = self.client.get(reverse("dashboard"))
         python_delete_url = reverse("delete", args=[python_article.id])
         django_delete_url = reverse("delete", args=[django_article.id])
 
@@ -884,7 +884,7 @@ class ArticleUpdateViewTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, "/dashboard/")
+        self.assertRedirects(response, reverse("dashboard"))
 
     # 不正な内容をPOSTした場合、既存記事が更新されないことを確認する。入力エラーによって保存済みの記事が壊れることを防ぐため。
     def test_update_with_invalid_data_does_not_change_article(self):
@@ -1038,7 +1038,7 @@ class ArticleDeleteViewTest(TestCase):
         response = self.client.post(self.delete_url)
 
         self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, "/dashboard/")
+        self.assertRedirects(response, reverse("dashboard"))
 
     # 存在しない記事IDへアクセスした場合、404になることを確認する。存在しない記事を削除できないことを保証するため。
     def test_delete_with_missing_article_returns_404(self):

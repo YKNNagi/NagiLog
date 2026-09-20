@@ -1,22 +1,80 @@
+{% extends "blog/base.html" %}
 {% load static %}
-<form method="post">
-    {% csrf_token %}
-    
-    {{ form.title }}
-    <span id="title-count">0 / 50文字</span>
-    {{ form.body }}
-    <div id="markdown-preview"></div>
-    {{ form.tags }}
-    <div id="tag-buttons"></div>
-    {{ form.is_pinned }}
 
-    {% if form.instance.pk %}
-        <button type="submit">更新する</button>
-    {% else %}
-        <button type="submit">投稿する</button>
-    {% endif %}
-</form>
-<a href="{% url 'dashboard' %}">キャンセルして戻る</a>
-<script src="{% static 'blog/js/vendor/marked.umd.js' %}"></script>
-<script src="{% static 'blog/js/vendor/purify.min.js' %}"></script>
-<script src="{% static 'blog/js/article_form.js' %}"></script>
+{% block title %}{% if form.instance.pk %}記事を編集{% else %}記事を作成{% endif %} | NagiLog{% endblock %}
+{% block body_class %}article-form-page{% endblock %}
+
+{% block content %}
+    <div class="form-layout">
+        <header class="page-heading">
+            <p class="page-heading__eyebrow">Write</p>
+            {% if form.instance.pk %}
+                <h1>記事を編集</h1>
+                <p>内容を整えて、学びの記録を更新します。</p>
+            {% else %}
+                <h1>記事を作成</h1>
+                <p>小さな気づきから、ひとつずつ記録します。</p>
+            {% endif %}
+        </header>
+
+        <form class="form-card" method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <div class="field-group">
+                <label class="field-label" for="{{ form.title.id_for_label }}">タイトル</label>
+                <div class="title-field-row">
+                    {{ form.title }}
+                    <span id="title-count">0 / 50文字</span>
+                </div>
+                {{ form.title.errors }}
+            </div>
+
+            <div class="field-group">
+                <span class="field-label">タグ</span>
+                {{ form.tags }}
+                <div id="tag-buttons" aria-label="記事に付けるタグを選択"></div>
+                {{ form.tags.errors }}
+                <p class="field-hint">記事に関連するタグを選択してください。複数選択できます。</p>
+            </div>
+
+            <div class="field-group">
+                <div class="editor-grid">
+                    <div class="editor-panel">
+                        <label class="editor-panel__label" for="{{ form.body.id_for_label }}">
+                            Markdown入力
+                        </label>
+                        {{ form.body }}
+                        {{ form.body.errors }}
+                    </div>
+
+                    <div class="editor-panel">
+                        <span class="editor-panel__label">Preview</span>
+                        <div class="markdown-preview" id="markdown-preview" aria-live="polite"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field-group checkbox-row">
+                {{ form.is_pinned }}
+                <label for="{{ form.is_pinned.id_for_label }}">固定記事にする</label>
+                {{ form.is_pinned.errors }}
+            </div>
+
+            <div class="form-actions">
+                {% if form.instance.pk %}
+                    <button class="button button--primary" type="submit">更新する</button>
+                {% else %}
+                    <button class="button button--primary" type="submit">投稿する</button>
+                {% endif %}
+                <a class="cancel-link" href="{% url 'dashboard' %}">キャンセルして戻る</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'blog/js/vendor/marked.umd.js' %}"></script>
+    <script src="{% static 'blog/js/vendor/purify.min.js' %}"></script>
+    <script src="{% static 'blog/js/article_form.js' %}"></script>
+{% endblock %}

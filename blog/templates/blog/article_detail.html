@@ -1,17 +1,31 @@
+{% extends "blog/base.html" %}
 {% load markdown_tags %}
 
-<a href="{% url 'dashboard' %}">← 記事一覧へ戻る</a>
+{% block title %}{{ article.title }} | NagiLog{% endblock %}
+{% block body_class %}article-detail-page{% endblock %}
 
-<article>
-    <h1>{{ article.title }}</h1>
+{% block content %}
+    <div class="reading-layout">
+        <a class="back-link" href="{% url 'dashboard' %}">← 記事一覧へ戻る</a>
 
-    <div>
-        {% for tag in article.tags.all %}
-            <span>{{ tag.name }}</span>
-        {% endfor %}
+        <article>
+            <header class="article-header">
+                <h1>{{ article.title }}</h1>
+
+                {% with article.tags.all as article_tags %}
+                    {% if article_tags %}
+                        <div class="tag-list" aria-label="記事のタグ">
+                            {% for tag in article_tags %}
+                                <span class="tag-chip">{{ tag.name }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            </header>
+
+            <div class="markdown-body">
+                {{ article.body|markdown }}
+            </div>
+        </article>
     </div>
-
-    <div>
-        {{ article.body|markdown }}
-    </div>
-</article>
+{% endblock %}

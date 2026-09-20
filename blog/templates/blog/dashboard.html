@@ -1,30 +1,75 @@
+{% extends "blog/base.html" %}
 {% load markdown_tags %}
-<a href="/dashboard/">すべて</a>
 
-{% if user.is_superuser %}
+{% block title %}Articles | NagiLog{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
 
-<a href="{% url 'create' %}">新規記事作成</a>
+{% block content %}
+    <section class="blog-hero" aria-labelledby="blog-title">
+        <h1 class="blog-hero__title" id="blog-title">NagiLog</h1>
+        <p class="blog-hero__description">小さく作って、試して、学んだ記録。</p>
+    </section>
 
-<a href="{% url 'tag_create' %}">タグ作成</a>
+    <section aria-labelledby="articles-title">
+        <div class="section-header">
+            <h2 class="section-title" id="articles-title">Articles</h2>
+        </div>
 
-{% endif %}
+        <nav class="tag-filter" aria-label="タグで記事を絞り込む">
+            <a class="tag-chip tag-chip--all" href="{% url 'dashboard' %}">すべて</a>
+            {% for tag in tags %}
+                <a class="tag-chip" href="{% url 'dashboard' %}?tag={{ tag.name }}">
+                    {{ tag.name }}
+                </a>
+            {% endfor %}
+        </nav>
 
-{% for tag in tags %}
-    <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
-{% endfor %}
+        <div class="article-grid">
+            {% for article in articles %}
+                <article class="article-card">
+                    {% if article.is_pinned %}
+                        <p class="article-card__pinned">PINNED</p>
+                    {% endif %}
 
-{% for article in articles %}
+                    <h3 class="article-card__title">
+                        <a href="{% url 'detail' article.pk %}">{{ article.title }}</a>
+                    </h3>
 
-    {{ article.title }}
-    {{ article.body|markdown_summary }}
-    <a href="{% url 'detail' article.pk %}">続きを読む</a>
-    {% for tag in article.tags.all %}
-        <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
-    {% endfor %}
+                    <p class="article-card__summary">
+                        {{ article.body|markdown_summary }}
+                    </p>
 
-    {% if user.is_superuser %}
-    <a href="{% url 'update' article.pk %}">編集</a>
-    <a href="{% url 'delete' article.pk %}">削除</a>
-    {% endif %}
+                    {% with article.tags.all as article_tags %}
+                        {% if article_tags %}
+                            <div class="article-card__tags tag-list" aria-label="記事のタグ">
+                                {% for tag in article_tags %}
+                                    <a class="tag-chip" href="{% url 'dashboard' %}?tag={{ tag.name }}">
+                                        {{ tag.name }}
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endwith %}
 
-{% endfor %}
+                    <div class="article-card__footer">
+                        <time class="article-card__date" datetime="{{ article.created_at|date:'Y-m-d' }}">
+                            {{ article.created_at|date:"Y.m.d" }}
+                        </time>
+                        <a class="article-card__more" href="{% url 'detail' article.pk %}">
+                            続きを読む →
+                        </a>
+                    </div>
+
+                    {% if user.is_superuser %}
+                        <div class="article-card__admin" aria-label="記事の管理操作">
+                            <a href="{% url 'update' article.pk %}">編集</a>
+                            <a class="danger-link" href="{% url 'delete' article.pk %}">削除</a>
+                        </div>
+                    {% endif %}
+                </article>
+            {% empty %}
+                <p class="empty-state">表示できる記事はまだありません。</p>
+            {% endfor %}
+        </div>
+    </section>
+{% endblock %}
