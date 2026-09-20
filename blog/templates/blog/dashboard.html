@@ -16,7 +16,8 @@
 {% for article in articles %}
 
     {{ article.title }}
-    {{ article.body|markdown }}
+    {{ article.body|markdown_summary }}
+    <a href="{% url 'detail' article.pk %}">続きを読む</a>
     {% for tag in article.tags.all %}
         <a href="/dashboard/?tag={{ tag.name }}">{{ tag.name }}</a>
     {% endfor %}

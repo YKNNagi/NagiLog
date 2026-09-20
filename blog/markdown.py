@@ -1,5 +1,6 @@
 import bleach
 import markdown
+from django.utils.html import strip_tags
 
 
 ALLOWED_TAGS = [
@@ -42,3 +43,10 @@ def render_markdown(text):
     )
 
     return safe_html
+
+def render_markdown_summary(text):
+    safe_html = render_markdown(text)
+    plain_text = strip_tags(safe_html)
+    summary = " ".join(plain_text.split())
+
+    return summary

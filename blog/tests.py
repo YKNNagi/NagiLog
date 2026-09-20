@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from .markdown import render_markdown
+from .markdown import render_markdown, render_markdown_summary
 
 from .forms import ArticleForm, TagForm
 from .models import Article, Tag
@@ -750,16 +750,19 @@ class DashboardViewTest(TestCase):
 
         self.assertEqual(articles[0], pinned_article)
 
-    # Markdownで保存された記事本文がDashboardでHTMLへ変換されて表示されることを確認する。保存済みMarkdownが安全なHTMLとして表示されることを保証するため。
-    def test_dashboard_displays_markdown_body_as_html(self):
+    # Markdownで保存された記事本文がDashboardでプレーンテキストの概要として表示されることを確認する。一覧表示がMarkdown装飾に左右されないことを保証するため。
+    def test_dashboard_displays_markdown_body_as_plain_summary(self):
         Article.objects.create(
             title="Markdownテスト",
-            body="# うさぎ",
+            body="# うさぎ\n\nこれは**Markdown**の記事です",
         )
     
         response = self.client.get(reverse("dashboard"))
     
-        self.assertContains(response, "<h1>うさぎ</h1>", html=True)
+        self.assertContains(
+            response,
+            "うさぎ これはMarkdownの記事です",
+        )
 
     # 悪意あるHTMLを含む記事をDashboardに表示した場合、危険な要素や属性が除去されることを確認する。保存済み本文からXSSが実行されないことを保証するため。
     def test_dashboard_sanitizes_malicious_markdown(self):
@@ -1221,3 +1224,28 @@ class MarkdownTest(TestCase):
         self.assertNotIn("javascript:", result)
         self.assertNotIn("href=", result)
         self.assertIn("侵入ぷにゃ", result)
+
+    # Markdown本文から装飾を除いた概要文が生成されることを確認する。Dashboardで統一されたプレーンテキストの概要を表示できることを保証するため。
+    def test_render_markdown_summary_returns_plain_text(self):
+        result = render_markdown_summary(
+            "# うさぎ\n\nこれは**Markdown**の記事です"
+        )
+    
+        self.assertEqual(
+            result,
+            "うさぎ これはMarkdownの記事です",
+        )
+
+class ArticleDetailViewTest(TestCase):
+    # 記事詳細ページでタイトルと本文が表示されることを確認する。記事を読む機能が正しく動作することを保証するため。
+    def test_detail_displays_article(self):
+        article = Article.objects.create(
+            title="詳細テスト",
+            body="# うさぎ",
+        )
+
+        response = self.client.get(reverse("detail", args=[article.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "詳細テスト")
+        self.assertContains(response, "<h1>うさぎ</h1>", html=True)

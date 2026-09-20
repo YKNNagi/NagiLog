@@ -48,6 +48,14 @@ def dashboard(request):
 
     return render(request, "blog/dashboard.html", context)
 
+def detail(request, pk):
+    article = get_object_or_404(Article, pk=pk)
+
+    context = {
+        "article": article,
+    }
+
+    return render(request, "blog/article_detail.html", context)
 
 @user_passes_test(
     lambda user: user.is_superuser,

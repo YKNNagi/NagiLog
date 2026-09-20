@@ -1,0 +1,19 @@
+{% load markdown_tags %}
+
+<a href="{% url 'dashboard' %}">← 記事一覧へ戻る</a>
+
+<article>
+    <h1>{{ article.title }}</h1>
+
+    <div>
+        {% for tag in article.tags.all %}
+            <a href="{% url 'dashboard' %}?tag={{ tag.name }}"></a>
+                {{ tag.name }}
+            </a>
+        {% endfor %}
+    </div>
+
+    <div>
+        {{ article.body|markdown }}
+    </div>
+</article>
