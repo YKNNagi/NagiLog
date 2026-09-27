@@ -1254,6 +1254,48 @@ class MarkdownRenderingTest(TestCase):
             "うさぎ これはMarkdownの記事です",
         )
 
+    # fenced code blockが複数行のコードブロックへ変換されることを確認する。
+    # 技術記事のコマンドや設定例を、保存後もコードブロックとして表示できることを保証するため。
+    def test_render_markdown_converts_fenced_code_block(self):
+        result = render_markdown(
+            "```text\n"
+            "ブラウザ\n"
+            "DNS\n"
+            "VPS\n"
+            "```"
+        )
+
+        self.assertIn("<pre><code", result)
+        self.assertIn("ブラウザ\nDNS\nVPS", result)
+        self.assertIn("</code></pre>", result)
+
+    # 言語指定付きfenced code blockの言語情報が保持されることを確認する。
+    # コードブロックの言語情報を保存後の表示でも利用できることを保証するため。
+    def test_render_markdown_preserves_fenced_code_language(self):
+        result = render_markdown(
+            "```nginx\n"
+            "server_name blog.example.com;\n"
+            "```"
+        )
+
+        self.assertIn('<code class="language-nginx">', result)
+
+    # Markdown tableがtable要素へ変換され、必要な構造が保持されることを確認する。
+    # 技術記事の比較表などを保存後も表として表示できることを保証するため。
+    def test_render_markdown_converts_table(self):
+        result = render_markdown(
+            "| 項目 | 役割 |\n"
+            "| --- | --- |\n"
+            "| DNS | サブドメインをVPSへ向ける |\n"
+            "| nginx | リクエストを受け取る |"
+        )
+
+        self.assertIn("<table>", result)
+        self.assertIn("<thead>", result)
+        self.assertIn("<tbody>", result)
+        self.assertIn("<th>項目</th>", result)
+        self.assertIn("<td>DNS</td>", result)
+        self.assertIn("</table>", result)
 
 class ArticleDetailViewTest(TestCase):
     # 記事詳細ページでタイトルと本文が表示されることを確認する。記事を読む機能が正しく動作することを保証するため。

@@ -20,10 +20,17 @@ ALLOWED_TAGS = [
     "code",
     "pre",
     "a",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
 ]
 
 ALLOWED_ATTRIBUTES = {
     "a": ["href"],
+    "code": ["class"],
 }
 
 ALLOWED_PROTOCOLS = [
@@ -32,7 +39,10 @@ ALLOWED_PROTOCOLS = [
 ]
 
 def render_markdown(text):
-    html = markdown.markdown(text)
+    html = markdown.markdown(
+        text,
+        extensions=["fenced_code", "tables"],
+    )
 
     safe_html = bleach.clean(
         html,

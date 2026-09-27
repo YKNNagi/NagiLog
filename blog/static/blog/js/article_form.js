@@ -68,6 +68,12 @@ function updateMarkdownPreview() {
             "code",
             "pre",
             "a",
+            "table",
+            "thead",
+            "tbody",
+            "tr",
+            "th",
+            "td",
         ],
         ALLOWED_ATTR: ["href"],
     });
