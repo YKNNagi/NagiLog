@@ -485,6 +485,26 @@ a.tag-chip--all:hover {
     font-size: 0.9em;
 }
 
+.markdown-body table,
+.markdown-preview table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.markdown-body th,
+.markdown-body td,
+.markdown-preview th,
+.markdown-preview td {
+    padding: 0.55em 0.75em;
+    border: 1px solid var(--color-border);
+    text-align: left;
+}
+
+.markdown-body th,
+.markdown-preview th {
+    background: var(--color-tag);
+}
+
 .markdown-body pre,
 .markdown-preview pre {
     margin: 1.7em 0;
